@@ -18,8 +18,8 @@ class Vocabulary:
         >>> vocabulary = Vocabulary(['a', 'b', 'c'])
         >>> vocabulary.codes
         {'a': 0, 'b': 1, 'c': 2}
-        >>> vocabulary.encode(['acax', ['b', 'z']])
-        [array([0, 2, 0, 3]), array([1, 3])]
+        >>> vocabulary.encode(['acax', 'bbz'])
+        [array([0, 2, 0, 3]), array([1, 1, 3])]
     """
 
     def __init__(self, names: Sequence[str]) -> None:
