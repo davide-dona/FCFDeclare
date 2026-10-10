@@ -15,12 +15,12 @@ class TraceStatistics:
         """
         self.n_traces = len(traces)
         self.n_codes = n_codes
-        
-        # Traces are first concatenated to a single array of events, 
+
+        # Traces are first concatenated to a single array of events,
         # which is more efficient to process than a list of arrays.
         # The leading empty array lets concatenate accept a batch without traces
         self._codes = np.concatenate([np.zeros(0, np.int64), *traces])
-        
+
         # The length of each trace
         self._lengths = np.fromiter(map(len, traces), np.int64, len(traces))
         # The index in the event array of the first event of each trace
