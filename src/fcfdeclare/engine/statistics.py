@@ -5,39 +5,7 @@ import numpy as np
 
 
 class TraceStatistics:
-    """
-    The per-trace statistics of a batch of encoded traces, which every template check reads.
-
-    The traces are concatenated into one array of events, with the trace and position of each
-    event, so that each statistic comes from a few numpy operations over all events at once.
-    Each statistic is computed on first use, so a batch only pays for what its checks read.
-
-    Shapes use T for the traces of the batch, A for the activity codes, and E for the events.
-
-    Example:
-        Two traces over the codes 0, 1, 2: `0 1 0` and `2`. Each row is a trace and each
-        column an activity, and -1 marks an activity the trace lacks.
-
-        >>> statistics = TraceStatistics([np.array([0, 1, 0]), np.array([2])], n_codes=3)
-        >>> statistics.count
-        array([[2, 1, 0],
-               [0, 0, 1]])
-        >>> statistics.first
-        array([[ 0,  1, -1],
-               [-1, -1,  0]])
-        >>> statistics.last
-        array([[ 2,  1, -1],
-               [-1, -1,  0]])
-        >>> statistics.init
-        array([0, 2])
-
-        `bigram[t, x, y]` counts how often `x` is immediately followed by `y` in trace `t`.
-
-        >>> statistics.bigram[0]
-        array([[0, 1, 0],
-               [1, 0, 0],
-               [0, 0, 0]])
-    """
+    """Per-trace statistics of a batch of encoded traces."""
 
     def __init__(self, traces: Sequence[np.ndarray], n_codes: int) -> None:
         """
@@ -47,13 +15,19 @@ class TraceStatistics:
         """
         self.n_traces = len(traces)
         self.n_codes = n_codes
+
+        # Traces are first concatenated to a single array of events,
+        # which is more efficient to process than a list of arrays.
+        # The leading empty array lets concatenate accept a batch without traces
+        self._codes = np.concatenate([np.zeros(0, np.int64), *traces])
+
+        # The length of each trace
         self._lengths = np.fromiter(map(len, traces), np.int64, len(traces))
         # The index in the event array of the first event of each trace
         self._starts = np.cumsum(self._lengths) - self._lengths
-        # The leading empty array keeps the dtype when every trace is empty
-        self._codes = np.concatenate([np.zeros(0, np.int64), *traces])
-        # The trace of each event, and its position in that trace
+        # The trace each event belongs to
         self._trace = np.repeat(np.arange(self.n_traces), self._lengths)
+        # The position of each event inside its trace, counting from 0
         self._position = np.arange(len(self._codes)) - self._starts[self._trace]
 
     @cached_property
