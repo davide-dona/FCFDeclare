@@ -4,6 +4,7 @@ from fcfdeclare.checker import Checker, Conformance
 from fcfdeclare.miner import mine
 from fcfdeclare.model.constraints import Constraint
 from fcfdeclare.model.declare_model import DeclareModel
+from fcfdeclare.model.measures import Measures
 from fcfdeclare.model.settings import MiningSettings
 from fcfdeclare.model.templates import Template
 
@@ -14,6 +15,7 @@ __all__ = [
     'Conformance',
     'Constraint',
     'DeclareModel',
+    'Measures',
     'MiningSettings',
     'Template',
     '__version__',
