@@ -23,11 +23,12 @@ log = [
 
 model = fcf.mine(
     log,
-    activity_support=0.1,
-    min_support=0.99,
+    min_support=0.3,
+    min_confidence=0.9,
     max_cardinality=2,
-    vacuity=True,
 )
+model.constraints[fcf.Constraint('Response', ('Register', 'Close'))]
+# Measures(support=1.0, confidence=1.0)
 model.save('model.json')
 model = fcf.DeclareModel.load('model.json')
 
@@ -74,24 +75,28 @@ Only Existence, Absence, and Exactly take a count $n$; the other templates have 
 
 ### Vacuity
 
-Every template with an activation requires its activation to occur, as the table shows. With **vacuity** on, a trace in which the activation does not occur satisfies the constraint anyway, which is the usual reading of Declare: Response$(a, b)$ then says nothing about a trace without $a$. With vacuity off, such a trace violates the constraint. A model records the vacuity it was mined with, and its `Checker` applies the same one.
+Every template with an activation requires its activation to occur, as the table shows. A trace in which the activation does not occur satisfies the constraint **vacuously**, which is the usual reading of Declare: Response$(a, b)$ says nothing about a trace without $a$. `Checker` always applies this reading.
 
 ## Mining
 
-`mine` builds the candidates in two steps and keeps those that enough traces satisfy. The **support** of a candidate is the fraction of the traces of the log that satisfy it.
+The candidates are every unary template on every activity of the log, and every binary template on every ordered pair of distinct activities. Existence, Absence, and Exactly are instantiated for $n = 1, \dots,$ `max_cardinality`. A trace **witnesses** a candidate when the candidate's activation occurs in it and the candidate holds; a template without an activation counts every trace as activated. Each candidate gets two measures, after Maggi, Bose, and van der Aalst (CAiSE 2012):
 
-1. An activity is **frequent** when it occurs in at least `activity_support` of the traces. The candidates are every unary template on every frequent activity, and every binary template on every ordered pair of distinct frequent activities. Existence, Absence, and Exactly are instantiated for $n = 1, \dots,$ `max_cardinality`.
-2. A candidate is kept when its support is at least `min_support`. Both thresholds are inclusive.
+- **support**: the fraction of the traces of the log that witness it. It says how much of the log the constraint describes.
+- **confidence**: the fraction of the traces in which its activation occurs that witness it. It says how reliably the constraint holds when it applies.
 
-`vacuity` decides whether vacuous satisfaction counts toward the support, as described above.
+A candidate is kept when its support is at least `min_support` and its confidence is at least `min_confidence`. Both thresholds are inclusive, and each filters on its own measure, so changing one never changes what the other means.
+
+Vacuous traces count toward neither measure, so a rare activation cannot make a constraint look strong: if $a$ occurs in a single trace of $N$, Response$(a, b)$ has a support of at most $1 / N$, whatever the other traces do. Conversely, a rule that always holds when it applies has a confidence of 1 however rare its activation. The fraction of the traces that satisfy a constraint, vacuously or not, follows from the two measures and the fraction $p$ of the traces in which the activation occurs: $1 - p\,(1 - \text{confidence})$.
+
+For a template without an activation every trace is activated, so its confidence equals its support, and it is kept when its support reaches both thresholds.
 
 The constraints of a model are ordered by template in the order of the table, then by $n$, then by activity names. This order fixes the columns of `Checker.holds` and the saved file, so equal models save to identical bytes.
 
-Absence$(a, 1)$ can never be mined when `min_support` exceeds `1 - activity_support`: a frequent $a$ occurs in at least `activity_support` of the traces, so Absence$(a, 1)$ holds in at most the rest of them.
-
 ### Relation to other Declare miners
 
-The Apriori-based Declare miner of [Maggi, Bose, and van der Aalst (CAiSE 2012)](https://doi.org/10.1007/978-3-642-31095-9_18), which [Declare4Py](https://github.com/ivanDonadello/Declare4Py) implements, takes as binary candidates only the pairs of activities that occur together in enough traces. FCFDeclare takes every ordered pair of individually frequent activities, with no co-occurrence requirement. Templates that hold precisely when two activities do not co-occur, such as Not Responded Existence and Exclusive Choice, therefore become minable. The candidate set is larger, and the miner still evaluates all candidates of a template in one vectorized pass over the distinct traces of the log.
+The Apriori-based Declare miner of [Maggi, Bose, and van der Aalst (CAiSE 2012)](https://doi.org/10.1007/978-3-642-31095-9_18), which [Declare4Py](https://github.com/ivanDonadello/Declare4Py) implements, takes as binary candidates only the pairs of activities that occur together in enough traces. Templates that hold precisely when two activities do not co-occur, such as Not Responded Existence and Exclusive Choice, are then never candidates. The paper suggests adding negated activities to the itemsets to recover them, but as a way to skip candidates it changes no result. FCFDeclare instead takes every ordered pair of activities, with no co-occurrence requirement, and evaluates all candidates of a template in one vectorized pass over the distinct traces of the log.
+
+The support and confidence above are those of the paper. FCFDeclare has one threshold per measure and no vacuity setting, so no parameter changes what another one counts.
 
 ## Saved models
 
@@ -100,18 +105,23 @@ The Apriori-based Declare miner of [Maggi, Bose, and van der Aalst (CAiSE 2012)]
 ```json
 {
     "settings": {
-        "activity_support": 0.1,
-        "min_support": 0.99,
-        "max_cardinality": 2,
-        "vacuity": true
+        "min_support": 0.3,
+        "min_confidence": 0.9,
+        "max_cardinality": 2
     },
     "constraints": [
-        {"template": "Response", "activities": ["Register", "Close"], "n": 1, "support": 1.0}
+        {
+            "template": "Response",
+            "activities": ["Register", "Close"],
+            "n": 1,
+            "support": 1.0,
+            "confidence": 1.0
+        }
     ]
 }
 ```
 
-`DeclareModel.load` accepts only this format and raises `ValueError` on a missing or extra key, an invalid setting or constraint, a repeated constraint, or a support outside $[0, 1]$.
+`DeclareModel.load` accepts only this format and raises `ValueError` on a missing or extra key, an invalid setting or constraint, a repeated constraint, or a measure outside $[0, 1]$ or a support above its confidence.
 
 ## Development
 

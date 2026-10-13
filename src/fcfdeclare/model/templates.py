@@ -68,46 +68,67 @@ class Template(StrEnum):
     ALTERNATE_RESPONSE = 'Alternate Response', checks.alternate_response, True, False, 0
     ALTERNATE_PRECEDENCE = 'Alternate Precedence', checks.alternate_precedence, True, False, 1
 
+    def activation_of(self, a: np.ndarray, b: np.ndarray) -> np.ndarray | None:
+        """[K] The code of each constraint's activation, or None for a template without one."""
+        return None if self.activation is None else (a, b)[self.activation]
+
     def evaluate(
-        self,
-        statistics: TraceStatistics,
-        a: np.ndarray,
-        b: np.ndarray,
-        n: np.ndarray,
-        *,
-        vacuity: bool,
+        self, statistics: TraceStatistics, a: np.ndarray, b: np.ndarray, n: np.ndarray
     ) -> np.ndarray:
         """
         [T, K] Whether each trace of a batch satisfies each of K constraints of this template.
+        A trace without a constraint's activation satisfies it vacuously.
 
         Args:
             statistics: The statistics of the batch.
             a: [K] The code of each constraint's first activity.
             b: [K] The code of each constraint's second activity, ignored by a unary template.
             n: [K] The count of each constraint, ignored by a template without cardinality.
-            vacuity: Whether a trace without a constraint's activation satisfies it.
 
         Example:
             Two traces over the codes 0, 1, 2: `0 1` and `2`, checked against the K = 2
             constraints Response(0, 1) and Response(1, 0). Each row is a trace and each column
-            a constraint.
+            a constraint. The second trace has no activation for either constraint, so it
+            satisfies both.
 
             >>> statistics = TraceStatistics([np.array([0, 1]), np.array([2])], n_codes=3)
             >>> a, b, n = np.array([0, 1]), np.array([1, 0]), np.array([1, 1])
-            >>> Template.RESPONSE.evaluate(statistics, a, b, n, vacuity=False)
-            array([[ True, False],
-                   [False, False]])
-
-            The second trace has no activation for either constraint, so with vacuity it
-            satisfies both.
-
-            >>> Template.RESPONSE.evaluate(statistics, a, b, n, vacuity=True)
+            >>> Template.RESPONSE.evaluate(statistics, a, b, n)
             array([[ True, False],
                    [ True,  True]])
         """
         holds = self.check(statistics, a, b, n)
-        if self.activation is None:
+        activation = self.activation_of(a, b)
+        if activation is None:
             return holds
-        activated = statistics.present[:, (a, b)[self.activation]]
-        # A trace without the activation satisfies the constraint only vacuously
-        return holds | ~activated if vacuity else holds & activated
+        return holds | ~statistics.present[:, activation]
+
+    def witness(
+        self, statistics: TraceStatistics, a: np.ndarray, b: np.ndarray, n: np.ndarray
+    ) -> np.ndarray:
+        """
+        [T, K] Whether each trace of a batch satisfies each of K constraints of this template
+        non-vacuously: the constraint's activation occurs and the constraint holds. A template
+        without an activation counts every trace as activated.
+
+        Args:
+            statistics: See `evaluate`.
+            a: See `evaluate`.
+            b: See `evaluate`.
+            n: See `evaluate`.
+
+        Example:
+            The batch and constraints of `evaluate`. The second trace satisfies both
+            constraints only vacuously, so it witnesses neither.
+
+            >>> statistics = TraceStatistics([np.array([0, 1]), np.array([2])], n_codes=3)
+            >>> a, b, n = np.array([0, 1]), np.array([1, 0]), np.array([1, 1])
+            >>> Template.RESPONSE.witness(statistics, a, b, n)
+            array([[ True, False],
+                   [False, False]])
+        """
+        holds = self.check(statistics, a, b, n)
+        activation = self.activation_of(a, b)
+        if activation is None:
+            return holds
+        return holds & statistics.present[:, activation]

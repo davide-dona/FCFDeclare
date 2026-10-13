@@ -57,7 +57,8 @@ class _Group:
 
 class Checker:
     """
-    Checks traces against a Declare model, under the vacuity it was mined with.
+    Checks traces against a Declare model. A trace without a constraint's activation
+    satisfies it vacuously.
 
     Each call evaluates its whole batch with a few numpy operations per template, whose fixed
     cost outweighs the work on a single trace, so pass every trace at once rather than one per
@@ -137,6 +138,6 @@ class Checker:
             # Evaluate each template once over all of its constraints, into their model columns
             for group in self._groups:
                 holds[:, group.columns] = group.template.evaluate(
-                    statistics, group.a, group.b, group.n, vacuity=self.model.settings.vacuity
+                    statistics, group.a, group.b, group.n
                 )
             yield chunk, holds
