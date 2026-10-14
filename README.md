@@ -45,6 +45,8 @@ A `str` is itself a sequence of one-character strings, so `'abc'` is read as the
 
 Each call to `check` or `holds` costs a few numpy operations per template whatever the batch size, so pass all traces in one call rather than one trace per call. Duplicate traces in a batch are evaluated once.
 
+[`examples/mining_and_fitness.ipynb`](examples/mining_and_fitness.ipynb) walks through the whole flow on a small CSV log: loading the traces, mining a model, scoring the fitness of the log and of new traces, and finding the constraints a trace violates.
+
 ## Templates
 
 A constraint applies a template to one activity $a$ or to an ordered pair of distinct activities $(a, b)$. The **activation** of a binary template is the activity whose occurrence makes the constraint relevant to a trace.
