@@ -14,9 +14,9 @@ class MiningSettings:
     so changing one never changes what another means.
 
     - min_support: The least support a candidate needs to be kept: the fraction of the traces
-        in which its activation occurs and it holds.
-    - min_confidence: The least confidence a candidate needs to be kept: the fraction of the
-        traces in which its activation occurs that it holds in.
+        in which it is non-vacuously satisfied.
+    - min_confidence: The least confidence a candidate needs to be kept: the ratio between its
+        support and the support of its activation.
     - max_cardinality: The largest count `n` of Existence, Absence, and Exactly candidates.
 
     Raises:

@@ -8,14 +8,14 @@ class Measures:
     """
     How strongly the mining log supports a constraint.
 
-    - support: The fraction of the traces in which the constraint's activation occurs and the
-        constraint holds.
-    - confidence: The fraction of the traces in which the activation occurs that the
-        constraint holds in.
+    - support: The fraction of the traces in which the constraint is non-vacuously satisfied:
+        its activation occurs and it holds.
+    - confidence: The ratio between the support of the constraint and the support of its
+        activation, the fraction of the traces in which the activation occurs.
 
-    A template without an activation counts every trace as activated, so its confidence equals
-    its support. Otherwise the activated traces are a subset of the log, so the support never
-    exceeds the confidence.
+    A template without an activation has an activation support of 1, so its confidence equals
+    its support. Otherwise the activation support is at most 1, so the support never exceeds
+    the confidence.
 
     Raises:
         ValueError: If a measure lies outside `[0, 1]`, or the support exceeds the confidence.
