@@ -7,7 +7,8 @@ from typing import Self
 
 from fcfdeclare.model import serialization
 from fcfdeclare.model.constraints import Constraint
-from fcfdeclare.model.settings import MiningSettings, is_number
+from fcfdeclare.model.measures import Measures
+from fcfdeclare.model.settings import MiningSettings
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,34 +16,29 @@ class DeclareModel:
     """
     A Declare model, with the settings it was mined under.
 
-    - settings: The mining settings, whose `vacuity` checking reuses.
-    - constraints: Each constraint, to its support: the fraction of the mining log's traces that
-        satisfy it. The model stores them read-only, ordered by template in `Template` order,
-        then by count, then by activity names, which fixes both the saved file and the columns
-        of `Checker.holds`.
+    - settings: The mining settings.
+    - constraints: Each constraint, to its measures over the mining log. The model stores them
+        read-only, ordered by template in `Template` order, then by count, then by activity
+        names, which fixes both the saved file and the columns of `Checker.holds`.
 
     Raises:
-        ValueError: If a key is not a `Constraint` or a support lies outside `[0, 1]`.
+        ValueError: If a key is not a `Constraint` or a value is not `Measures`.
     """
 
     settings: MiningSettings
-    constraints: Mapping[Constraint, float]
+    constraints: Mapping[Constraint, Measures]
 
     def __post_init__(self) -> None:
         if not isinstance(self.settings, MiningSettings):
             raise ValueError(f'The settings are MiningSettings, not {self.settings!r}.')
-        for constraint in self.constraints:
+        for constraint, measures in self.constraints.items():
             if not isinstance(constraint, Constraint):
                 raise ValueError(f'The constraints are keyed by Constraint, not {constraint!r}.')
+            if not isinstance(measures, Measures):
+                raise ValueError(f'The measures of {constraint} are Measures, not {measures!r}.')
 
         # Store the constraints in canonical order, so that equal models serialize identically
-        constraints: dict[Constraint, float] = {}
-        for constraint, support in sorted(
-            self.constraints.items(), key=lambda item: item[0].sort_key
-        ):
-            if not is_number(support) or not 0.0 <= support <= 1.0:
-                raise ValueError(f'The support of {constraint} is {support!r}, not in [0, 1].')
-            constraints[constraint] = float(support)
+        constraints = dict(sorted(self.constraints.items(), key=lambda item: item[0].sort_key))
         object.__setattr__(self, 'constraints', MappingProxyType(constraints))
 
     def save(self, path: str | os.PathLike[str]) -> None:
